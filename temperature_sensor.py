@@ -136,16 +136,18 @@ class TemperatureSensor:
         msg = f'{self.name} in den letzten '
 
         if interval_seconds < 3600:
-            msg += f'{interval_seconds / 60} Minuten:\n'
+            msg += f'{interval_seconds / 60:.1} Minuten:\n'
         else:
-            msg += f'{interval_seconds / 3600} Stunden:\n'
+            msg += f'{interval_seconds / 3600:.1} Stunden:\n'
 
         msg += f'Minimum: {interval.min():.3}°C ({interval.index[interval.argmin()].isoformat()})\n' \
                f'Maximum: {interval.max():.3}°C ({interval.index[interval.argmin()].isoformat()})\n' \
                f'Durchschnittstemperatur: {interval.mean():.3}°C\n' \
                f'Standardabweichung: {interval.std():.3}°C'
 
-        interval.plot(figsize=(12, 8))
+        fig = plt.figure(figsize=(12, 8))
+        interval.plot(fig=fig)
         fname = f'plot/{self.name}-{dt.isoformat()}-{datetime.datetime.now().isoformat()}.png'
-        plt.savefig(fname)
+        fig.savefig(fname)
+        plt.close(fig)
         send_image(fname, msg, notify)
