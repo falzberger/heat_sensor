@@ -7,8 +7,6 @@ from logging.handlers import TimedRotatingFileHandler
 from config import LOG_FILE, LOG_LEVEL
 from temperature_sensor import TemperatureSensor
 
-# TODO: send graphs of the temperature history after the interval
-
 SENSORS = [
     TemperatureSensor('Netz', '/sys/bus/w1/devices/28-0120506b26b1/w1_slave',
                       check_interval=60, check_period=180, min_value=70),
