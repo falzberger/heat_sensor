@@ -122,7 +122,7 @@ class TemperatureSensor:
                       f'Standardabweichung: {interval.std()}°C'
 
                 interval.plot(figsize=(12, 8))
-                fname = f'data/{self.name}-{now.isoformat()}.png'
+                fname = f'plot/{self.name}-{now.isoformat()}.png'
                 plt.savefig(fname)
                 send_image(fname, msg)
 
