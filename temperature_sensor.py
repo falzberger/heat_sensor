@@ -27,7 +27,7 @@ class TemperatureSensor:
         self.min_value = min_value
         self.max_value = max_value
 
-        self.last_check = datetime.now()  # the datetime of the latest temperature check
+        self.last_check = datetime.datetime.now()  # the datetime of the latest temperature check
         self.data = pd.Series(dtype=pd.Float64Dtype)
 
         self._logger = logging.getLogger('heat_sensor')
