@@ -11,9 +11,9 @@ def send_message(msg: str) -> requests.Response:
                         {'chat_id': CHAT_ID, 'text': msg})
 
 
-def send_image(path: str, msg: str = '') -> requests.Response:
+def send_image(path: str, msg: str = '', notify: bool = False) -> requests.Response:
     # https://core.telegram.org/bots/api#sendphoto
     with open(path, 'rb') as file:
         return requests.post(f'{BASE_URL}/sendPhoto',
-                             {'chat_id': CHAT_ID, 'caption': msg, 'disable_notification': True},
+                             {'chat_id': CHAT_ID, 'caption': msg, 'disable_notification': not notify},
                              files={'photo': file})

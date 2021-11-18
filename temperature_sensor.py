@@ -1,12 +1,12 @@
 import logging
 import re
 import time
-from datetime import datetime, timedelta
+import datetime
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from util import send_message, send_image
+from telegram import send_message, send_image
 
 
 class TemperatureSensor:
@@ -77,7 +77,7 @@ class TemperatureSensor:
 
     def check_temperature(self, period_end: datetime):
         self.last_check = period_end
-        period_start = period_end - timedelta(seconds=self.check_period)
+        period_start = period_end - datetime.timedelta(seconds=self.check_period)
 
         interval: pd.Series = self.data.truncate(before=period_start, after=period_end, copy=True)
         latest = interval[-1] if len(interval) > 0 else None
@@ -92,39 +92,31 @@ class TemperatureSensor:
             if (mask.sum() / mask.count()) > 0.66:
                 self._logger.warning(f'{self.name} to low: {latest} < {self.min_value}')
                 send_message(self._get_warning_message(interval.mean(), latest))
+                self.send_plot_starting_from(period_end - datetime.timedelta(seconds=300), notify=True)
 
         if self.max_value is not None:
             mask = interval > self.max_value
             if (mask.sum() / mask.count()) > 0.66:
                 self._logger.warning(f'{self.name} to high: {latest} > {self.max_value}')
                 send_message(self._get_warning_message(interval.mean(), latest))
+                self.send_plot_starting_from(period_end - datetime.timedelta(seconds=300), notify=True)
 
     def monitor(self, interval: int):
         """Monitors the temperature sensor and sends a telegram message if thresholds are violated."""
-        last_backup = datetime.now()
-        last_interval = datetime.now()
+        last_backup = datetime.datetime.now()
+        last_interval = datetime.datetime.now()
 
         while True:
-            now = datetime.now()
+            now = datetime.datetime.now()
             self.add_sensor_reading(now)
 
             # we only want to check the temperature if the specified seconds since the last check have passed
-            expected_last_check_time = now - timedelta(seconds=self.check_interval)
+            expected_last_check_time = now - datetime.timedelta(seconds=self.check_interval)
             if expected_last_check_time > self.last_check:
                 self.check_temperature(now)
 
             if (now - last_interval).seconds > interval:
-                interval = self.data.truncate(before=last_interval)
-                msg = f'{self.name} in den letzten {interval / 3600} Stunden: \n' \
-                      f'Minimum: {interval.min()}°C ({interval.index[interval.argmin()].isoformat()})\n' \
-                      f'Maximum: {interval.max()}°C ({interval.index[interval.argmin()].isoformat()})\n' \
-                      f'Durchschnittstemperatur: {interval.mean}°C\n' \
-                      f'Standardabweichung: {interval.std()}°C'
-
-                interval.plot(figsize=(12, 8))
-                fname = f'plot/{self.name}-{now.isoformat()}.png'
-                plt.savefig(fname)
-                send_image(fname, msg)
+                self.send_plot_starting_from(last_interval, notify=False)
 
             if (now - last_backup).seconds > 3600:
                 self.data.truncate(after=last_backup).to_csv(f'data/{self.name}.csv', mode='a',
@@ -133,3 +125,25 @@ class TemperatureSensor:
 
             # we can make the checks a bit more coarse-grained to reduce workload and data generation
             time.sleep(3)
+
+    def send_plot_starting_from(self, dt: datetime.datetime, notify: bool):
+        interval = self.data.truncate(before=dt)
+        now = datetime.datetime.now()
+        interval_seconds = (now - dt).seconds
+
+        msg = f'{self.name} in den letzten '
+
+        if interval_seconds < 3600:
+            msg += f'{interval_seconds / 60} Minuten:\n'
+        else:
+            msg += f'{interval_seconds / 3600} Stunden:\n'
+
+        msg += f'Minimum: {interval.min()}°C ({interval.index[interval.argmin()].isoformat()})\n' \
+               f'Maximum: {interval.max()}°C ({interval.index[interval.argmin()].isoformat()})\n' \
+               f'Durchschnittstemperatur: {interval.mean}°C\n' \
+               f'Standardabweichung: {interval.std()}°C'
+
+        interval.plot(figsize=(12, 8))
+        fname = f'plot/{self.name}-{dt.isoformat()}-{datetime.datetime.now().isoformat()}.png'
+        plt.savefig(fname)
+        send_image(fname, msg, notify)
