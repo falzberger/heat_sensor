@@ -117,11 +117,13 @@ class TemperatureSensor:
 
             if (now - last_interval).seconds > interval:
                 self.send_plot_starting_from(last_interval, notify=False)
+                last_interval = now
 
             if (now - last_backup).seconds > 3600:
                 self.data.truncate(after=last_backup).to_csv(f'data/{self.name}.csv', mode='a',
                                                              header=False, index=True)
                 self.data.truncate(before=last_backup, copy=False)
+                last_backup = now
 
             # we can make the checks a bit more coarse-grained to reduce workload and data generation
             time.sleep(3)
@@ -138,10 +140,10 @@ class TemperatureSensor:
         else:
             msg += f'{interval_seconds / 3600} Stunden:\n'
 
-        msg += f'Minimum: {interval.min()}°C ({interval.index[interval.argmin()].isoformat()})\n' \
-               f'Maximum: {interval.max()}°C ({interval.index[interval.argmin()].isoformat()})\n' \
-               f'Durchschnittstemperatur: {interval.mean}°C\n' \
-               f'Standardabweichung: {interval.std()}°C'
+        msg += f'Minimum: {interval.min():.3}°C ({interval.index[interval.argmin()].isoformat()})\n' \
+               f'Maximum: {interval.max():.3}°C ({interval.index[interval.argmin()].isoformat()})\n' \
+               f'Durchschnittstemperatur: {interval.mean():.3}°C\n' \
+               f'Standardabweichung: {interval.std():.3}°C'
 
         interval.plot(figsize=(12, 8))
         fname = f'plot/{self.name}-{dt.isoformat()}-{datetime.datetime.now().isoformat()}.png'
