@@ -1,18 +1,13 @@
 import argparse
+import functools
 import logging
 import threading
 from logging.handlers import TimedRotatingFileHandler
-import time
-
-from datetime import datetime, timedelta
 
 from config import LOG_FILE, LOG_LEVEL
 from temperature_sensor import TemperatureSensor
 
-# TODO: multithreading, each sensor has its own thread
 # TODO: send graphs of the temperature history after the interval
-# TODO: regularly write out log in a permanent file
-# TODO: regularly write out temperature measurements to a csv file for every sensor
 
 SENSORS = [
     TemperatureSensor('Netz', '/sys/bus/w1/devices/28-0120506b26b1/w1_slave',
@@ -29,7 +24,7 @@ def main(interval: int):
 
     threads = []
     for sensor in SENSORS:
-        thread = threading.Thread(name=sensor.name, target=sensor.monitor)
+        thread = threading.Thread(name=sensor.name, target=functools.partial(sensor.monitor, interval=interval))
         threads.append(thread)
         thread.start()
         logger.info(f'Started thread {sensor.name} temperature')
@@ -37,23 +32,6 @@ def main(interval: int):
     for thread in threads:
         thread.join()
         logger.error(f'Thread for {thread.name} stopped execution')
-
-
-def monitor(sensor: TemperatureSensor):
-    # measure the temperature every 2 seconds
-    MEASURE_INTERVAL = 2
-    INTERVALS_PER_HOUR = 60 * 60 / MEASURE_INTERVAL
-    INTERVALS_PER_DAY = 24 * INTERVALS_PER_HOUR
-
-    # we use a counter so that we can do stuff any other period
-    counter = 0
-    while True:
-        if counter == 0:
-            # we don't keep data older than a week
-            sensor.remove_data_before(datetime.now() - timedelta(days=7))
-
-        time.sleep(MEASURE_INTERVAL)
-        counter = counter + 1 % INTERVALS_PER_DAY
 
 
 def setup_logger() -> logging.Logger:

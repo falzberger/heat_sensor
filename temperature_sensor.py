@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -32,8 +33,8 @@ class TemperatureSensor:
 
     def _get_warning_message(self, average, last) -> str:
         msg = f'{self.name}: Durchschnittliche Temperatur in den letzten {self.check_period} Sekunden: {average}°C.\n' \
-                  f'Letzter gemessener Wert: {last}°C.\n' \
-                  f'Soll: '
+              f'Letzter gemessener Wert: {last}°C.\n' \
+              f'Soll: '
 
         if self.min_value is not None:
             msg += f'> {self.min_value}°C'
@@ -97,8 +98,11 @@ class TemperatureSensor:
                 self._logger.warning(f'{self.name} to high: {latest} > {self.max_value}')
                 send_telegram(self._get_warning_message(interval.mean(), latest))
 
-    def monitor(self):
+    def monitor(self, interval: int):
         """Monitors the temperature sensor and sends a telegram message if thresholds are violated."""
+        last_backup = datetime.now()
+        last_interval = datetime.now()
+
         while True:
             now = datetime.now()
             self.add_sensor_reading(now)
@@ -108,5 +112,14 @@ class TemperatureSensor:
             if expected_last_check_time > self.last_check:
                 self.check_temperature(now)
 
-    def remove_data_before(self, index: datetime):
-        self.data.truncate(before=index, copy=False)
+            if (now - last_interval).seconds > interval:
+                # TODO: plot data and send to telegram group
+                pass
+
+            if (now - last_backup).seconds > 3600:
+                self.data.truncate(after=last_backup).to_csv(f'data/{self.name}.csv', mode='a',
+                                                             header=False, index=True)
+                self.data.truncate(before=last_backup, copy=False)
+
+            # we can make the checks a bit more coarse-grained to reduce workload and data generation
+            time.sleep(3)
