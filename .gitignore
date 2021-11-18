@@ -1,0 +1,3 @@
+config.py
+# Project exclude paths
+/venv/
