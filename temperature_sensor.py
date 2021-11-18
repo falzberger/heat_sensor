@@ -3,9 +3,10 @@ import re
 import time
 from datetime import datetime, timedelta
 
+import matplotlib.pyplot as plt
 import pandas as pd
 
-from util import send_telegram
+from util import send_message, send_image
 
 
 class TemperatureSensor:
@@ -83,20 +84,20 @@ class TemperatureSensor:
         if latest is None:
             error_msg = f'Konnte seit {period_start} Sekunden keine Temperatur von {self.name} messen!'
             self._logger.info(f'Sending: {error_msg}')
-            send_telegram(error_msg)
+            send_message(error_msg)
             return
 
         if self.min_value is not None:
             mask = interval < self.min_value
             if (mask.sum() / mask.count()) > 0.66:
                 self._logger.warning(f'{self.name} to low: {latest} < {self.min_value}')
-                send_telegram(self._get_warning_message(interval.mean(), latest))
+                send_message(self._get_warning_message(interval.mean(), latest))
 
         if self.max_value is not None:
             mask = interval > self.max_value
             if (mask.sum() / mask.count()) > 0.66:
                 self._logger.warning(f'{self.name} to high: {latest} > {self.max_value}')
-                send_telegram(self._get_warning_message(interval.mean(), latest))
+                send_message(self._get_warning_message(interval.mean(), latest))
 
     def monitor(self, interval: int):
         """Monitors the temperature sensor and sends a telegram message if thresholds are violated."""
@@ -113,8 +114,17 @@ class TemperatureSensor:
                 self.check_temperature(now)
 
             if (now - last_interval).seconds > interval:
-                # TODO: plot data and send to telegram group
-                pass
+                interval = self.data.truncate(before=last_interval)
+                msg = f'{self.name} in den letzten {interval / 3600} Stunden: \n' \
+                      f'Minimum: {interval.min()}°C ({interval.index[interval.argmin()].isoformat()})\n' \
+                      f'Maximum: {interval.max()}°C ({interval.index[interval.argmin()].isoformat()})\n' \
+                      f'Durchschnittstemperatur: {interval.mean}°C\n' \
+                      f'Standardabweichung: {interval.std()}°C'
+
+                interval.plot(figsize=(12, 8))
+                fname = f'data/{self.name}-{now.isoformat()}.png'
+                plt.savefig(fname)
+                send_image(fname, msg)
 
             if (now - last_backup).seconds > 3600:
                 self.data.truncate(after=last_backup).to_csv(f'data/{self.name}.csv', mode='a',
