@@ -127,7 +127,7 @@ class TemperatureSensor:
                 self._logger.debug(f'{self.name}: Saving measuremnents from last minute to CSV file')
                 self.data.truncate(before=last_backup, copy=False).to_csv(f'data/{self.name}.csv', mode='a',
                                                                           header=False, index=True)
-                last_backup = now
+                last_backup = now + datetime.timedelta(milliseconds=1)  # dirty hack to avoid duplicates
 
             # we can make the checks a bit more coarse-grained to reduce workload and data generation
             time.sleep(3)
