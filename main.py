@@ -22,7 +22,7 @@ def main(interval: int):
 
     threads = []
     for sensor in SENSORS:
-        thread = threading.Thread(name=sensor.name, target=functools.partial(sensor.monitor, interval=interval))
+        thread = threading.Thread(name=sensor.name, target=functools.partial(sensor.monitor, summary_interval=interval))
         threads.append(thread)
         thread.start()
         logger.info(f'Started thread {sensor.name} temperature')
