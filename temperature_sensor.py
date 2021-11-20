@@ -8,6 +8,8 @@ import pandas as pd
 
 from telegram import send_message, send_image
 
+BACKUP_INTERVAL_SECONDS = 60
+
 
 class TemperatureSensor:
 
@@ -32,9 +34,9 @@ class TemperatureSensor:
 
         self._logger = logging.getLogger('heat_sensor')
 
-    def _get_warning_message(self, average, last) -> str:
-        msg = f'{self.name}: Durchschnittliche Temperatur in den letzten {self.check_period} Sekunden: {average}°C.\n' \
-              f'Letzter gemessener Wert: {last}°C.\n' \
+    def _get_warning_message(self, average: float, last: float) -> str:
+        msg = f'{self.name}: Durchschnitt in den letzten {self.check_period} Sekunden: {average:.2}°C.\n' \
+              f'Letzter gemessener Wert: {last:.2}°C.\n' \
               f'Soll: '
 
         if self.min_value is not None:
@@ -64,7 +66,7 @@ class TemperatureSensor:
         self._logger.info(f'Measured {self.name} temperature: {temperature}')
         return temperature
 
-    def add_sensor_reading(self, dt: datetime):
+    def add_sensor_reading(self, dt: datetime.datetime):
         # if the first temperature reading fails, we try it a second time, otherwise we skip
         temperature = self._read_sensor()
         if temperature is None:
@@ -75,14 +77,14 @@ class TemperatureSensor:
 
         self.data[dt] = temperature
 
-    def check_temperature(self, period_end: datetime):
+    def check_temperature(self, period_end: datetime.datetime):
         self.last_check = period_end
         period_start = period_end - datetime.timedelta(seconds=self.check_period)
 
         interval: pd.Series = self.data.truncate(before=period_start, after=period_end, copy=True)
         latest = interval[-1] if len(interval) > 0 else None
         if latest is None:
-            error_msg = f'Konnte seit {period_start} Sekunden keine Temperatur von {self.name} messen!'
+            error_msg = f'Konnte seit {self.check_period} Sekunden keine Temperatur von {self.name} messen!'
             self._logger.info(f'Sending: {error_msg}')
             send_message(error_msg)
             return
@@ -101,10 +103,11 @@ class TemperatureSensor:
                 send_message(self._get_warning_message(interval.mean(), latest))
                 self.send_plot_starting_from(period_end - datetime.timedelta(seconds=300), notify=True)
 
-    def monitor(self, interval: int):
+    def monitor(self, summary_interval: int):
         """Monitors the temperature sensor and sends a telegram message if thresholds are violated."""
+        self._logger.info(f'Starting monitoring with summary_interval of {summary_interval} seconds')
         last_backup = datetime.datetime.now()
-        last_interval = datetime.datetime.now()
+        last_summary = datetime.datetime.now()
 
         while True:
             now = datetime.datetime.now()
@@ -115,14 +118,15 @@ class TemperatureSensor:
             if expected_last_check_time > self.last_check:
                 self.check_temperature(now)
 
-            if (now - last_interval).seconds > interval:
-                self.send_plot_starting_from(last_interval, notify=False)
-                last_interval = now
+            if (now - last_summary).seconds > summary_interval:
+                self.send_plot_starting_from(last_summary, notify=False)
+                self.data = self.data.truncate(before=last_summary)
+                last_summary = now
 
-            if (now - last_backup).seconds > 3600:
-                self.data.truncate(after=last_backup).to_csv(f'data/{self.name}.csv', mode='a',
-                                                             header=False, index=True)
-                self.data.truncate(before=last_backup, copy=False)
+            if (now - last_backup).seconds > BACKUP_INTERVAL_SECONDS:
+                self._logger.debug(f'{self.name}: Saving measuremnents from last minute to CSV file')
+                self.data.truncate(before=last_backup, copy=False).to_csv(f'data/{self.name}.csv', mode='a',
+                                                                          header=False, index=True)
                 last_backup = now
 
             # we can make the checks a bit more coarse-grained to reduce workload and data generation
@@ -136,12 +140,12 @@ class TemperatureSensor:
         msg = f'{self.name} in den letzten '
 
         if interval_seconds < 3600:
-            msg += f'{interval_seconds / 60:.1} Minuten:\n'
+            msg += f'{(interval_seconds / 60):.1f} Minuten:\n'
         else:
-            msg += f'{interval_seconds / 3600:.1} Stunden:\n'
+            msg += f'{(interval_seconds / 3600):.1f} Stunden:\n'
 
         msg += f'Minimum: {interval.min():.3}°C ({interval.index[interval.argmin()].isoformat()})\n' \
-               f'Maximum: {interval.max():.3}°C ({interval.index[interval.argmin()].isoformat()})\n' \
+               f'Maximum: {interval.max():.3}°C ({interval.index[interval.argmax()].isoformat()})\n' \
                f'Durchschnittstemperatur: {interval.mean():.3}°C\n' \
                f'Standardabweichung: {interval.std():.3}°C'
 

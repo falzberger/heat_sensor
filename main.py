@@ -47,7 +47,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Start monitoring the temperature sensors.')
     parser.add_argument('--interval', type=int, default=86400,
                         help='The interval in seconds after which to send a summary to the telegram group.'
-                             'Default is 86400 (1 day).')
+                             'Must be greater than or equal to 60 seconds, default is 86400 (1 day).')
     args = parser.parse_args()
 
     main(args.interval)
