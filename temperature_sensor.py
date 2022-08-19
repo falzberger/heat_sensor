@@ -35,8 +35,8 @@ class TemperatureSensor:
         self._logger = logging.getLogger('heat_sensor')
 
     def _get_warning_message(self, average: float, last: float) -> str:
-        msg = f'{self.name}: Durchschnitt in den letzten {self.check_period} Sekunden: {average:.2}°C.\n' \
-              f'Letzter gemessener Wert: {last:.2}°C.\n' \
+        msg = f'{self.name}: Durchschnitt in den letzten {self.check_period} Sekunden: {average:.2f}°C.\n' \
+              f'Letzter gemessener Wert: {last:.2f}°C.\n' \
               f'Soll: '
 
         if self.min_value is not None:
@@ -140,14 +140,14 @@ class TemperatureSensor:
         msg = f'{self.name} in den letzten '
 
         if interval_seconds < 3600:
-            msg += f'{(interval_seconds / 60):.1f} Minuten:\n'
+            msg += f'{(interval_seconds / 60):.2f} Minuten:\n'
         else:
-            msg += f'{(interval_seconds / 3600):.1f} Stunden:\n'
+            msg += f'{(interval_seconds / 3600):.2f} Stunden:\n'
 
-        msg += f'Minimum: {interval.min():.3}°C ({interval.index[interval.argmin()].isoformat()})\n' \
-               f'Maximum: {interval.max():.3}°C ({interval.index[interval.argmax()].isoformat()})\n' \
-               f'Durchschnittstemperatur: {interval.mean():.3}°C\n' \
-               f'Standardabweichung: {interval.std():.3}°C'
+        msg += f'Minimum: {interval.min():.1f}°C ({interval.index[interval.argmin()].isoformat()})\n' \
+               f'Maximum: {interval.max():.1f}°C ({interval.index[interval.argmax()].isoformat()})\n' \
+               f'Durchschnittstemperatur: {interval.mean():.1f}°C\n' \
+               f'Standardabweichung: {interval.std():.1f}°C'
 
         fig = plt.figure(figsize=(12, 8))
         interval.plot(fig=fig)
